@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Multiple animated objects</title>
+		<meta charset="utf-8">
+		<meta content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" name="viewport">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+
+		<!-- 0 思考 1 跑步 2 站立 3 行走 -->
+
+		<div style="position: fixed; top: 10px; right: 10px;">
+			<div style=" cursor: pointer; margin-bottom:20px; border-radius:10px ;padding: 4px 10px;color: #fff; border-color: #1890ff; background: #1890ff; text-shadow: 0 -1px 0 rgb(0 0 0 / 12%); box-shadow: 0 2px #0000000b;" onclick="handleChangeAction(2)">站立</div>
+			<div style=" cursor: pointer; margin-bottom:20px; border-radius:10px ;padding: 4px 10px;color: #fff; border-color: #1890ff; background: #1890ff; text-shadow: 0 -1px 0 rgb(0 0 0 / 12%); box-shadow: 0 2px #0000000b;" onclick="handleChangeAction(0)">思考</div>
+			<div style=" cursor: pointer;  margin-bottom:20px;border-radius:10px ;padding: 4px 10px;color: #fff; border-color: #1890ff; background: #1890ff; text-shadow: 0 -1px 0 rgb(0 0 0 / 12%); box-shadow: 0 2px #0000000b;" onclick="handleChangeAction(3)">行走</div>
+			<div style=" cursor: pointer;  margin-bottom:20px;border-radius:10px ;padding: 4px 10px;color: #fff; border-color: #1890ff; background: #1890ff; text-shadow: 0 -1px 0 rgb(0 0 0 / 12%); box-shadow: 0 2px #0000000b;" onclick="handleChangeAction(1)">奔跑</div>
+		</div>
+		<script type="module">
+
+			import * as THREE from './resource/three.module.js';
+			import { GLTFLoader } from './resource/GLTFLoader.js';
+			import Stats from './resource/stats.module.js';
+			import { OrbitControls } from './resource/OrbitControls.js';
+
+			class SoliderItem {
+
+				constructor() {
+
+					this.initContainer();
+
+					this.initRenderer();
+
+					this.initScene();
+
+					this.initCamera();
+
+					this.initLight();
+
+					this.initStats();
+
+					this.initAxes();
+
+					this.initController();
+
+					this.initModel();
+
+					this.clock = new THREE.Clock();
+
+
+				}
+
+				initContainer() {
+
+					this.container = document.createElement( 'div' );
+
+					document.body.appendChild( this.container );
+
+				}
+
+
+				initRenderer() {
+
+					this.renderer = new THREE.WebGLRenderer( {
+						antialias: true,
+					} );
+
+					// 设置像素比
+					this.renderer.setPixelRatio( window.devicePixelRatio );
+
+					// 设置大小
+					this.renderer.setSize( window.innerWidth, window.innerHeight );
+
+					// 允许阴影
+					this.renderer.shadowMap.enabled = true;
+
+					// 添加到画布
+					this.container.appendChild( this.renderer.domElement );
+
+				}
+
+				initScene() {
+
+					this.scene = new THREE.Scene();
+
+					// 背景颜色
+					this.scene.background = new THREE.Color( 0xa0a0a0 );
+
+					// 远处的烟雾
+					this.scene.fog = new THREE.Fog( 0xa0a0a0, 0, 22 );
+
+					// 场地
+					const groundMesh = new THREE.Mesh(
+						new THREE.PlaneGeometry( 40, 40 ),
+						new THREE.MeshPhongMaterial( {
+							color: 0x999999,
+							depthWrite: false
+						} )
+					);
+
+					groundMesh.rotation.x = - Math.PI / 2;
+					groundMesh.receiveShadow = true;
+					this.scene.add( groundMesh );
+
+					window.addEventListener( 'resize', this.onWindowResize.bind( this ) );
+
+
+				}
+
+				initCamera() {
+
+					// 创建摄像机
+					this.camera = new THREE.PerspectiveCamera(
+						45, // 摄像机视锥体垂直视野角度
+						window.innerWidth / window.innerHeight, // 摄像机视锥体长宽比
+						1, // 摄像机视锥体近端面
+						10000 // 摄像机视锥体远端面
+					);
+
+					// 设置摄像机位置
+					this.camera.position.set( 3, 6, - 10 );
+
+					this.camera.lookAt( 0, 1, 0 );
+
+
+				}
+
+				initLight() {
+
+					// 球形光照亮 天上光 & 地下光 & 光照强度
+					this.hemLight = new THREE.HemisphereLight( 0xffffff, 0x444444, 0.6 );
+					this.hemLight.position.set( 0, 20, 0 );
+					this.scene.add( this.hemLight );
+
+					// 平行光 颜色 & 强度
+					this.dirLight = new THREE.DirectionalLight( 0xffffff, 3 );
+					this.dirLight.position.set( - 2, 10, - 10 );
+					this.dirLight.castShadow = true;
+					this.dirLight.shadow.camera.top = 18;
+					this.dirLight.shadow.camera.bottom = - 10;
+					this.dirLight.shadow.camera.left = - 12;
+					this.dirLight.shadow.camera.right = 12;
+					this.scene.add( this.dirLight );
+
+				}
+
+				initModel() {
+
+					// 加载动画 模型
+					const loader = new GLTFLoader();
+
+					loader.load( 'resource/Soldier.glb', function ( gltf ) {
+
+						const scene = gltf.scene;
+
+						scene.scale.set( 2, 2, 2 );
+
+						this.scene.add( scene );
+
+						this.animations = gltf.animations;
+
+
+						scene.traverse( function ( child ) {
+
+							if ( child.isSkinnedMesh ) child.castShadow = true;
+
+						} );
+
+						// 动画播放器
+						this.mixer = new THREE.AnimationMixer( scene );
+
+						// 0 思考 1 跑步 2 站立 3 行走
+						this.mixer.clipAction( gltf.animations[ 2 ] ).play();
+
+					}.bind( this ) );
+
+				}
+
+
+				// Helper: 坐标轴
+				initAxes() {
+
+					const axes = new THREE.AxesHelper( 30 );
+					this.scene.add( axes );
+
+				}
+
+				// Helper: 帧率显示器
+				initStats() {
+
+					this.stats = new Stats();
+					this.container.appendChild( this.stats.dom );
+
+				}
+
+				// Helper: 拖动控制器
+				initController() {
+
+					this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+					this.controls.enablePan = false;
+					this.controls.minDistance = 5;
+					this.controls.maxDistance = 50;
+
+				}
+
+				// 更新动作
+				updateAction( actionIndex ) {
+
+					this.mixer.stopAllAction();
+
+					const action = this.mixer.clipAction( SuperSolider.animations[ actionIndex ] );
+
+					action.play();
+
+				}
+
+				onWindowResize() {
+
+					this.camera.aspect = window.innerWidth / window.innerHeight;
+					this.camera.updateProjectionMatrix();
+					this.renderer.setSize( window.innerWidth, window.innerHeight );
+
+				}
+
+
+				animate() {
+
+					requestAnimationFrame( this.animate.bind( this ) );
+
+
+					if ( this.mixer ) {
+
+						this.mixer.update( this.clock.getDelta() );
+
+					}
+
+					this.renderer.render( this.scene, this.camera );
+
+					this.stats.update();
+
+				}
+
+			}
+
+			const SuperSolider = new SoliderItem();
+
+			SuperSolider.animate();
+
+
+			// 0 思考 1 跑步 2 站立 3 行走
+			window.handleChangeAction = function ( action ) {
+
+				SuperSolider.updateAction( action );
+
+			};
+
+
+		</script>
+
+	</body>
+
+</html>
