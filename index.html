@@ -86,13 +86,13 @@
 					// 背景颜色
 					this.scene.background = new THREE.Color( 0xa0a0a0 );
 
-					// 远处的烟雾
+					// 烟雾 near & far
 					this.scene.fog = new THREE.Fog( 0xa0a0a0, 0, 22 );
 
 					// 场地
 					const groundMesh = new THREE.Mesh(
-						new THREE.PlaneGeometry( 40, 40 ),
-						new THREE.MeshPhongMaterial( {
+						new THREE.PlaneGeometry( 1200, 1200 ), // 几何体 100* 100
+						new THREE.MeshPhongMaterial( { // 材质
 							color: 0x999999,
 							depthWrite: false
 						} )
@@ -154,6 +154,8 @@
 						const scene = gltf.scene;
 
 						scene.scale.set( 2, 2, 2 );
+
+						scene.position.set( 2, 0, 0 );
 
 						this.scene.add( scene );
 
@@ -226,7 +228,6 @@
 				animate() {
 
 					requestAnimationFrame( this.animate.bind( this ) );
-
 
 					if ( this.mixer ) {
 
